@@ -93,7 +93,10 @@ final class UsageViewModel: ObservableObject {
 
     var menuBarNumberColor: Color {
         guard let usage = usage else { return .gray }
-        return AlertLevel(for: usage.session.utilization).color
+        if usage.session.utilization >= 0.9 {
+            return .red
+        }
+        return .orange
     }
 
     var menuBarLevel: AlertLevel {
