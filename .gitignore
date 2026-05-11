@@ -5,8 +5,16 @@ DerivedData/
 *.xcworkspace/
 *.app/
 *.zip
+*.dmg
 *.dSYM/
 *.xcuserstate
 xcuserdata/
+AppIcon.iconset/
+__pycache__/
+*.pyc
 *.swp
 *.swo
+.release-notes.md
+.leak-patterns
+Local.swift
+.env

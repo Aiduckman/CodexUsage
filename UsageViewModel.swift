@@ -99,6 +99,14 @@ final class UsageViewModel: ObservableObject {
         return .orange
     }
 
+    var menuBarNSColor: NSColor {
+        guard let usage = usage else { return .secondaryLabelColor }
+        if usage.session.utilization >= 0.9 {
+            return .systemRed
+        }
+        return .systemOrange
+    }
+
     var menuBarLevel: AlertLevel {
         guard let usage = usage else { return .neutral }
         let worst = max(

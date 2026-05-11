@@ -2,7 +2,9 @@ import SwiftUI
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var statusBarController: StatusBarController?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Kept for future app-level hooks. The app is menu-bar only.
+        statusBarController = StatusBarController(viewModel: AppDependencies.shared.viewModel)
     }
 }
