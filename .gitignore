@@ -1,0 +1,12 @@
+.DS_Store
+build/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+*.app/
+*.zip
+*.dSYM/
+*.xcuserstate
+xcuserdata/
+*.swp
+*.swo
