@@ -33,8 +33,7 @@ struct MenuBarContentView: View {
 
     private var header: some View {
         HStack {
-            Image(systemName: "terminal")
-                .foregroundColor(openAIGreen)
+            OpenAIMarkView(color: openAIGreen)
             Text("CodexUsage").font(.headline)
                 .foregroundColor(.white)
             Spacer()

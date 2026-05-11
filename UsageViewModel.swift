@@ -91,6 +91,11 @@ final class UsageViewModel: ObservableObject {
         return "\(usage.session.displayPercent)%"
     }
 
+    var menuBarNumberColor: Color {
+        guard let usage = usage else { return .gray }
+        return AlertLevel(for: usage.session.utilization).color
+    }
+
     var menuBarLevel: AlertLevel {
         guard let usage = usage else { return .neutral }
         let worst = max(
@@ -106,6 +111,16 @@ final class UsageViewModel: ObservableObject {
 enum AlertLevel {
     case ok, warning, danger, neutral
 
+    init(for utilization: Double) {
+        if utilization >= 0.9 {
+            self = .danger
+        } else if utilization >= 0.7 {
+            self = .warning
+        } else {
+            self = .ok
+        }
+    }
+
     var color: Color {
         switch self {
         case .ok: return Color(red: 0.06, green: 0.64, blue: 0.50)
@@ -115,12 +130,4 @@ enum AlertLevel {
         }
     }
 
-    var symbolName: String {
-        switch self {
-        case .ok:       return "terminal"
-        case .warning:  return "exclamationmark.triangle"
-        case .danger:   return "exclamationmark.octagon"
-        case .neutral:  return "questionmark.circle"
-        }
-    }
 }
