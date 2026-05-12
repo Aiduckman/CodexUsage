@@ -9,7 +9,7 @@ and `~/.codex/archived_sessions/rollout-*.jsonl`. It uses the latest `token_coun
 event that includes `rate_limits`.
 
 - Shows the 5-hour Codex session window and weekly window from local `rate_limits`
-- OpenAI-style menu bar mark with orange percentage, switching to red above 90%
+- OpenAI-style menu bar mark with a white percentage under 70%, orange from 70-89%, and red at 90%+
 - Notifications at 80% and 95% per window, with hysteresis so they do not spam
 - Optional Launch at Login
 - No org ID, no session token, no Keychain credential, no network calls

@@ -96,7 +96,10 @@ final class UsageViewModel: ObservableObject {
         if usage.session.utilization >= 0.9 {
             return .red
         }
-        return .orange
+        if usage.session.utilization >= 0.7 {
+            return .orange
+        }
+        return .white
     }
 
     var menuBarNSColor: NSColor {
@@ -104,7 +107,10 @@ final class UsageViewModel: ObservableObject {
         if usage.session.utilization >= 0.9 {
             return .systemRed
         }
-        return .systemOrange
+        if usage.session.utilization >= 0.7 {
+            return .systemOrange
+        }
+        return .white
     }
 
     var menuBarLevel: AlertLevel {
