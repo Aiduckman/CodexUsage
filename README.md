@@ -9,7 +9,7 @@ and `~/.codex/archived_sessions/rollout-*.jsonl`. It uses the latest `token_coun
 event that includes `rate_limits`.
 
 - Shows the 5-hour Codex session window and weekly window from local `rate_limits`
-- Color-coded menu bar percentage: blue under 70%, orange 70-90%, red above 90%
+- OpenAI-style menu bar mark with orange percentage, switching to red above 90%
 - Notifications at 80% and 95% per window, with hysteresis so they do not spam
 - Optional Launch at Login
 - No org ID, no session token, no Keychain credential, no network calls
@@ -18,12 +18,12 @@ event that includes `rate_limits`.
 
 ## Download & run
 
-1. Build or download `CodexUsage.app`.
-2. Drag `CodexUsage.app` into `/Applications`.
+1. Download [`release/CodexUsage-OpenAI.zip`](release/CodexUsage-OpenAI.zip), or build from source.
+2. Unzip it and drag `CodexUsage-OpenAI.app` into `/Applications`.
 3. Because this personal build is not signed with a paid Apple Developer ID, macOS may refuse to open it on first run. Run:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/CodexUsage.app
+xattr -dr com.apple.quarantine /Applications/CodexUsage-OpenAI.app
 ```
 
 Or right-click the app, choose **Open**, then confirm.
