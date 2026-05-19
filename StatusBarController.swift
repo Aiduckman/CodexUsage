@@ -4,6 +4,8 @@ import SwiftUI
 
 @MainActor
 final class StatusBarController: NSObject, NSPopoverDelegate {
+    private static let openAIMark = openAIMarkImage()
+
     private let statusItem: NSStatusItem
     private let popover = NSPopover()
     private let viewModel: UsageViewModel
@@ -52,8 +54,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     private func updateStatusItem() {
         guard let button = statusItem.button else { return }
 
-        button.image = Self.openAIMarkImage()
-        button.image?.isTemplate = false
+        button.image = Self.openAIMark
         button.attributedTitle = NSAttributedString(
             string: " \(viewModel.menuBarLabel)",
             attributes: [

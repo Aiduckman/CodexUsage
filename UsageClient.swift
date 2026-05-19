@@ -27,6 +27,10 @@ enum UsageError: LocalizedError {
 final class CodexUsageClient: UsageFetching {
     private let homeDirectory: URL
     private let fileManager: FileManager
+    private static let tailChunkByteCount = 64 * 1024
+    private static let maxLineByteCount = 1024 * 1024
+    private static let tokenCountNeedle = Data(#""token_count""#.utf8)
+    private static let rateLimitsNeedle = Data(#""rate_limits""#.utf8)
 
     init(
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
@@ -56,7 +60,11 @@ final class CodexUsageClient: UsageFetching {
 
         var latest: RateLimitSample?
         for file in files {
-            guard let sample = try latestSample(in: file) else { continue }
+            if let latest, file.modifiedAt <= latest.timestamp {
+                break
+            }
+
+            guard let sample = try latestSample(in: file.url) else { continue }
             if latest == nil || sample.timestamp > latest!.timestamp {
                 latest = sample
             }
@@ -66,70 +74,150 @@ final class CodexUsageClient: UsageFetching {
         return latest.toUsageData(lastUpdated: Date())
     }
 
-    private static func rolloutFiles(in codexRoot: URL, fileManager: FileManager) -> [URL] {
+    private struct RolloutFile {
+        let url: URL
+        let modifiedAt: Date
+    }
+
+    private static func rolloutFiles(in codexRoot: URL, fileManager: FileManager) -> [RolloutFile] {
         let roots = [
             codexRoot.appendingPathComponent("sessions", isDirectory: true),
             codexRoot.appendingPathComponent("archived_sessions", isDirectory: true)
         ]
 
-        return roots.flatMap { root -> [URL] in
+        return roots.flatMap { root -> [RolloutFile] in
             guard let enumerator = fileManager.enumerator(
                 at: root,
-                includingPropertiesForKeys: [.isRegularFileKey],
+                includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
                 options: [.skipsPackageDescendants]
             ) else {
                 return []
             }
 
-            var urls: [URL] = []
+            var urls: [RolloutFile] = []
             for case let url as URL in enumerator {
                 guard url.pathExtension == "jsonl",
-                      url.lastPathComponent.hasPrefix("rollout-")
+                      url.lastPathComponent.hasPrefix("rollout-"),
+                      let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey]),
+                      values.isRegularFile == true
                 else {
                     continue
                 }
-                urls.append(url)
+                urls.append(RolloutFile(
+                    url: url,
+                    modifiedAt: values.contentModificationDate ?? .distantPast
+                ))
             }
             return urls
         }
+        .sorted { $0.modifiedAt > $1.modifiedAt }
     }
 
     private static func latestSample(in file: URL) throws -> RateLimitSample? {
-        let data: Data
+        let handle: FileHandle
         do {
-            data = try Data(contentsOf: file)
+            handle = try FileHandle(forReadingFrom: file)
+        } catch {
+            throw UsageError.unreadableLog(file.path)
+        }
+        defer { try? handle.close() }
+
+        let fileSize: UInt64
+        do {
+            fileSize = try handle.seekToEnd()
         } catch {
             throw UsageError.unreadableLog(file.path)
         }
 
-        guard let text = String(data: data, encoding: .utf8) else { return nil }
+        guard fileSize > 0 else { return nil }
+
         let decoder = JSONDecoder.codexDecoder
+        var offset = fileSize
+        var suffix = Data()
+        suffix.reserveCapacity(maxLineByteCount)
+        var skippingOversizedLine = false
 
-        for line in text.split(separator: "\n", omittingEmptySubsequences: true).reversed() {
-            guard line.contains("\"token_count\""),
-                  line.contains("\"rate_limits\"")
-            else {
-                continue
-            }
+        while offset > 0 {
+            let readSize = Int(min(UInt64(tailChunkByteCount), offset))
+            offset -= UInt64(readSize)
 
+            let chunk: Data
             do {
-                let event = try decoder.decode(CodexLogEvent.self, from: Data(line.utf8))
-                guard event.payload.type == "token_count",
-                      let rateLimits = event.payload.rateLimits
-                else {
-                    continue
-                }
-                return RateLimitSample(
-                    timestamp: event.timestamp,
-                    rateLimits: rateLimits,
-                    sourcePath: file.path
-                )
+                try handle.seek(toOffset: offset)
+                chunk = try handle.read(upToCount: readSize) ?? Data()
             } catch {
-                continue
+                throw UsageError.unreadableLog(file.path)
+            }
+            guard !chunk.isEmpty else { continue }
+
+            var buffer = Data()
+            buffer.reserveCapacity(chunk.count + suffix.count)
+            buffer.append(chunk)
+            buffer.append(suffix)
+            suffix.removeAll(keepingCapacity: true)
+
+            var upperBound = buffer.count
+            while upperBound > 0 {
+                guard let newlineIndex = buffer[..<upperBound].lastIndex(of: 0x0A) else {
+                    if !skippingOversizedLine {
+                        if upperBound <= maxLineByteCount {
+                            suffix = Data(buffer[..<upperBound])
+                        } else {
+                            skippingOversizedLine = true
+                        }
+                    }
+                    break
+                }
+
+                let lineStart = buffer.index(after: newlineIndex)
+                if lineStart < upperBound, !skippingOversizedLine {
+                    let line = buffer[lineStart..<upperBound]
+                    if let sample = decodeSampleLine(line, decoder: decoder, sourcePath: file.path) {
+                        return sample
+                    }
+                }
+
+                skippingOversizedLine = false
+                upperBound = newlineIndex
             }
         }
 
+        if !suffix.isEmpty, !skippingOversizedLine {
+            return decodeSampleLine(suffix, decoder: decoder, sourcePath: file.path)
+        }
+
         return nil
+    }
+
+    private static func decodeSampleLine(
+        _ line: Data.SubSequence,
+        decoder: JSONDecoder,
+        sourcePath: String
+    ) -> RateLimitSample? {
+        guard line.count <= maxLineByteCount else { return nil }
+
+        let data = Data(line)
+        guard data.range(of: tokenCountNeedle) != nil,
+              data.range(of: rateLimitsNeedle) != nil
+        else {
+            return nil
+        }
+
+        do {
+            let event = try decoder.decode(CodexLogEvent.self, from: data)
+            guard event.payload.type == "token_count",
+                  let rateLimits = event.payload.rateLimits
+            else {
+                return nil
+            }
+            return RateLimitSample(
+                timestamp: event.timestamp,
+                rateLimits: rateLimits,
+                sourcePath: sourcePath
+            )
+        } catch {
+            return nil
+        }
     }
 }
 
