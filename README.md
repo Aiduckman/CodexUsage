@@ -16,14 +16,14 @@ event that includes `rate_limits`.
 
 ---
 
-## Download & run
+## Run
 
-1. Download [`release/CodexUsage-OpenAI.zip`](release/CodexUsage-OpenAI.zip), or build from source.
-2. Unzip it and drag `CodexUsage-OpenAI.app` into `/Applications`.
-3. Because this personal build is not signed with a paid Apple Developer ID, macOS may refuse to open it on first run. Run:
+Build from source, then drag `CodexUsage.app` into `/Applications`.
+
+Because local builds are not signed with a paid Apple Developer ID, macOS may refuse to open it on first run. Run:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/CodexUsage-OpenAI.app
+xattr -dr com.apple.quarantine /Applications/CodexUsage.app
 ```
 
 Or right-click the app, choose **Open**, then confirm.
